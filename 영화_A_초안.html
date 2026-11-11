@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>나의 영화 티어리스트</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    background: #f4f1ec;
+    color: #2b2620;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  .sub { color: #7a7066; margin: 0 0 28px; font-size: 14px; }
+  h2 {
+    font-size: 17px; margin: 32px 0 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .count {
+    font-size: 12px; font-weight: normal; color: #fff;
+    background: #8a7f73; border-radius: 10px; padding: 2px 8px;
+  }
+  .empty {
+    color: #9a9087; font-size: 14px; padding: 16px;
+    border: 1px dashed #cfc6bb; border-radius: 10px; text-align: center;
+  }
+  .card {
+    background: #fff; border-radius: 12px; padding: 14px 16px;
+    margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  }
+  .title { font-weight: bold; flex: 1 1 180px; font-size: 16px; }
+  .shown-stars { color: #e0a100; font-size: 18px; letter-spacing: 1px; white-space: nowrap; }
+  .picker { display: flex; align-items: center; gap: 2px; }
+  .picker button {
+    border: none; background: none; cursor: pointer;
+    font-size: 24px; line-height: 1; padding: 2px; color: #cfc6bb;
+  }
+  .picker button.on { color: #e0a100; }
+  .picker .zero {
+    font-size: 12px; border: 1px solid #cfc6bb; border-radius: 6px;
+    padding: 4px 6px; margin-right: 4px; color: #7a7066;
+  }
+  .picker .zero.on { background: #2b2620; color: #fff; border-color: #2b2620; }
+  .btn {
+    border: none; border-radius: 8px; padding: 8px 12px;
+    font-size: 14px; cursor: pointer; font-family: inherit;
+    background: #2b2620; color: #fff;
+  }
+  .btn.light { background: #e8e2da; color: #2b2620; }
+  .btn:disabled { background: #d9d3cb; color: #9a9087; cursor: not-allowed; }
+  .msg { width: 100%; font-size: 13px; color: #c0392b; margin: 0; }
+  .final-box {
+    margin-top: 36px; background: #fff; border-radius: 12px; padding: 18px 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .final-box p { margin: 0 0 12px; font-size: 14px; color: #7a7066; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .name-input {
+    flex: 1 1 180px; padding: 9px 10px; font-size: 15px;
+    border: 1px solid #cfc6bb; border-radius: 8px; font-family: inherit;
+  }
+  .locked-banner {
+    background: #2b2620; color: #fff; border-radius: 10px;
+    padding: 10px 14px; font-size: 14px; margin-bottom: 12px;
+  }
+  pre.result {
+    background: #f4f1ec; border-radius: 8px; padding: 12px;
+    font-size: 14px; white-space: pre-wrap; margin: 12px 0 0;
+    font-family: inherit;
+  }
+  .ok { color: #1e8449; font-size: 13px; margin: 8px 0 0; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎬 나의 영화 티어리스트</h1>
+  <p class="sub">영화마다 별점(0~5개)을 골라 '등급 설정'을 누르세요. 8편을 모두 설정하면 최종 선택을 할 수 있어요.</p>
+
+  <h2>미설정 영화 <span class="count" id="unratedCount">0</span></h2>
+  <div id="unratedList"></div>
+
+  <h2>별점 목록 <span class="count" id="ratedCount">0</span></h2>
+  <div id="ratedList"></div>
+
+  <div class="final-box">
+    <div id="lockedBanner" class="locked-banner hidden"></div>
+    <p id="finalHint"></p>
+
+    <div class="row" id="finalRow">
+      <button class="btn" id="finalBtn">최종 선택</button>
+      <button class="btn light hidden" id="editBtn">수정</button>
+      <button class="btn" id="copyBtn">결과 복사</button>
+    </div>
+
+    <div id="nameArea" class="hidden" style="margin-top:14px;">
+      <p>결과 맨 위에 들어갈 이름을 입력하세요.</p>
+      <div class="row">
+        <input class="name-input" id="nameInput" type="text" maxlength="20" placeholder="이름">
+        <button class="btn" id="nameConfirmBtn">확인</button>
+        <button class="btn light" id="nameCancelBtn">취소</button>
+      </div>
+      <p class="msg hidden" id="nameMsg">이름을 입력해 주세요.</p>
+    </div>
+
+    <pre class="result hidden" id="resultBox"></pre>
+    <p class="ok hidden" id="copyMsg"></p>
+  </div>
+</div>
+
+<script>
+  const MOVIES = [
+    "기생충",
+    "인터스텔라",
+    "라라랜드",
+    "센과 치히로의 행방불명",
+    "어벤져스: 엔드게임",
+    "범죄도시",
+    "타이타닉",
+    "토이 스토리"
+  ];
+  const STORAGE_KEY = "movieTierList_v1";
+
+  // 저장되는 상태
+  let state = { ratings: {}, locked: false, name: "" };
+  // 저장하지 않는 화면용 상태
+  const picks = {};        // 영화별로 지금 고른 별 개수
+  const editing = {};      // '다시 설정' 중인 영화
+  const messages = {};     // 영화별 안내 문구
+  let showNameArea = false;
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        state.ratings = saved.ratings || {};
+        state.locked = !!saved.locked;
+        state.name = saved.name || "";
+      }
+    } catch (e) { /* 저장소를 못 쓰면 처음 상태로 시작 */ }
+  }
+  function save() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  function isRated(title) { return typeof state.ratings[title] === "number"; }
+  function starText(n) { return "★".repeat(n) + "☆".repeat(5 - n); }
+  function allRated() { return MOVIES.every(isRated); }
+
+  function sortedRated() {
+    return MOVIES.filter(isRated).sort((a, b) => {
+      const diff = state.ratings[b] - state.ratings[a];
+      if (diff !== 0) return diff;
+      return a.localeCompare(b, "ko");
+    });
+  }
+
+  function buildPicker(title) {
+    const box = document.createElement("div");
+    box.className = "picker";
+    const current = picks[title];
+
+    const zero = document.createElement("button");
+    zero.className = "zero" + (current === 0 ? " on" : "");
+    zero.textContent = "0개";
+    zero.title = "별 0개";
+    zero.onclick = () => { picks[title] = 0; messages[title] = ""; render(); };
+    box.appendChild(zero);
+
+    for (let i = 1; i <= 5; i++) {
+      const s = document.createElement("button");
+      s.textContent = "★";
+      s.title = "별 " + i + "개";
+      if (typeof current === "number" && i <= current) s.classList.add("on");
+      s.onclick = () => { picks[title] = i; messages[title] = ""; render(); };
+      box.appendChild(s);
+    }
+    return box;
+  }
+
+  function setRating(title) {
+    if (typeof picks[title] !== "number") {
+      messages[title] = "별점을 먼저 골라 주세요.";
+      render();
+      return;
+    }
+    state.ratings[title] = picks[title];
+    delete picks[title];
+    editing[title] = false;
+    messages[title] = "";
+    save();
+    render();
+  }
+
+  function unratedCard(title) {
+    const card = document.createElement("div");
+    card.className = "card";
+
+    const t = document.createElement("div");
+    t.className = "title";
+    t.textContent = title;
+    card.appendChild(t);
+
+    card.appendChild(buildPicker(title));
+
+    const btn = document.createElement("button");
+    btn.className = "btn";
+    btn.textContent = "등급 설정";
+    btn.onclick = () => setRating(title);
+    card.appendChild(btn);
+
+    addMessage(card, title);
+    return card;
+  }
+
+  function ratedCard(title) {
+    const card = document.createElement("div");
+    card.className = "card";
+
+    const t = document.createElement("div");
+    t.className = "title";
+    t.textContent = title;
+    card.appendChild(t);
+
+    if (editing[title]) {
+      card.appendChild(buildPicker(title));
+
+      const setBtn = document.createElement("button");
+      setBtn.className = "btn";
+      setBtn.textContent = "등급 설정";
+      setBtn.onclick = () => setRating(title);
+      card.appendChild(setBtn);
+
+      const cancel = document.createElement("button");
+      cancel.className = "btn light";
+      cancel.textContent = "취소";
+      cancel.onclick = () => {
+        editing[title] = false;
+        delete picks[title];
+        messages[title] = "";
+        render();
+      };
+      card.appendChild(cancel);
+    } else {
+      const stars = document.createElement("span");
+      stars.className = "shown-stars";
+      stars.textContent = starText(state.ratings[title]);
+      card.appendChild(stars);
+
+      const done = document.createElement("button");
+      done.className = "btn";
+      done.textContent = "설정 완료";
+      done.disabled = true;
+      card.appendChild(done);
+
+      const again = document.createElement("button");
+      again.className = "btn light";
+      again.textContent = "다시 설정";
+      again.disabled = state.locked;
+      again.onclick = () => {
+        if (state.locked) return;
+        editing[title] = true;
+        picks[title] = state.ratings[title];
+        showNameArea = false;
+        render();
+      };
+      card.appendChild(again);
+    }
+
+    addMessage(card, title);
+    return card;
+  }
+
+  function addMessage(card, title) {
+    if (messages[title]) {
+      const m = document.createElement("p");
+      m.className = "msg";
+      m.textContent = messages[title];
+      card.appendChild(m);
+    }
+  }
+
+  function anyEditing() { return MOVIES.some(t => editing[t]); }
+
+  function buildResultText() {
+    const lines = ["[" + state.name + "의 영화 티어리스트]"];
+    sortedRated().forEach(t => lines.push(starText(state.ratings[t]) + " " + t));
+    return lines.join("\n");
+  }
+
+  function render() {
+    // 미설정 영역: 원래 순서
+    const unrated = MOVIES.filter(t => !isRated(t));
+    const uList = document.getElementById("unratedList");
+    uList.innerHTML = "";
+    if (unrated.length === 0) {
+      uList.innerHTML = '<div class="empty">모든 영화의 별점을 매겼어요.</div>';
+    } else {
+      unrated.forEach(t => uList.appendChild(unratedCard(t)));
+    }
+    document.getElementById("unratedCount").textContent = unrated.length;
+
+    // 별점 목록: 별점 높은 순, 같은 별점은 가나다순
+    const rated = sortedRated();
+    const rList = document.getElementById("ratedList");
+    rList.innerHTML = "";
+    if (rated.length === 0) {
+      rList.innerHTML = '<div class="empty">아직 별점을 매긴 영화가 없어요.</div>';
+    } else {
+      rated.forEach(t => rList.appendChild(ratedCard(t)));
+    }
+    document.getElementById("ratedCount").textContent = rated.length;
+
+    // 최종 선택 영역
+    const finalBtn = document.getElementById("finalBtn");
+    const editBtn = document.getElementById("editBtn");
+    const copyBtn = document.getElementById("copyBtn");
+    const hint = document.getElementById("finalHint");
+    const banner = document.getElementById("lockedBanner");
+    const nameArea = document.getElementById("nameArea");
+    const resultBox = document.getElementById("resultBox");
+
+    if (state.locked) {
+      banner.classList.remove("hidden");
+      banner.textContent = "🔒 " + state.name + "님의 최종 선택이 완료되었어요. 고치려면 '수정'을 누르세요.";
+      hint.textContent = "'결과 복사'를 눌러 메신저에 붙여 넣으세요.";
+      finalBtn.classList.add("hidden");
+      editBtn.classList.remove("hidden");
+      copyBtn.disabled = false;
+      nameArea.classList.add("hidden");
+      resultBox.classList.remove("hidden");
+      resultBox.textContent = buildResultText();
+    } else {
+      banner.classList.add("hidden");
+      finalBtn.classList.remove("hidden");
+      editBtn.classList.add("hidden");
+      copyBtn.disabled = true;
+      resultBox.classList.add("hidden");
+      document.getElementById("copyMsg").classList.add("hidden");
+
+      const left = MOVIES.length - rated.length;
+      if (left > 0) {
+        hint.textContent = "아직 " + left + "편이 남았어요. 8편을 모두 설정하면 최종 선택을 할 수 있어요.";
+        finalBtn.disabled = true;
+      } else if (anyEditing()) {
+        hint.textContent = "다시 설정 중인 영화를 먼저 마쳐 주세요.";
+        finalBtn.disabled = true;
+      } else {
+        hint.textContent = "8편을 모두 설정했어요. '최종 선택'을 누르고 이름을 입력하세요.";
+        finalBtn.disabled = false;
+      }
+      if (finalBtn.disabled) showNameArea = false;
+      nameArea.classList.toggle("hidden", !showNameArea);
+    }
+  }
+
+  document.getElementById("finalBtn").onclick = () => {
+    if (!allRated() || anyEditing()) return;
+    showNameArea = true;
+    const input = document.getElementById("nameInput");
+    input.value = state.name;
+    document.getElementById("nameMsg").classList.add("hidden");
+    render();
+    input.focus();
+  };
+
+  function confirmName() {
+    const name = document.getElementById("nameInput").value.trim();
+    if (!name) {
+      document.getElementById("nameMsg").classList.remove("hidden");
+      return;
+    }
+    state.name = name;
+    state.locked = true;
+    showNameArea = false;
+    save();
+    render();
+  }
+  document.getElementById("nameConfirmBtn").onclick = confirmName;
+  document.getElementById("nameInput").addEventListener("keydown", e => {
+    if (e.key === "Enter") confirmName();
+  });
+  document.getElementById("nameCancelBtn").onclick = () => {
+    showNameArea = false;
+    render();
+  };
+
+  document.getElementById("editBtn").onclick = () => {
+    state.locked = false;
+    save();
+    render();
+  };
+
+  function fallbackCopy(text) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) {}
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  document.getElementById("copyBtn").onclick = () => {
+    if (!state.locked) return;
+    const text = buildResultText();
+    const msg = document.getElementById("copyMsg");
+    const done = ok => {
+      msg.classList.remove("hidden");
+      msg.textContent = ok
+        ? "복사했어요! 메신저에 붙여 넣으세요."
+        : "자동 복사가 안 됐어요. 위 글을 직접 드래그해서 복사해 주세요.";
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(() => done(true), () => done(fallbackCopy(text)));
+    } else {
+      done(fallbackCopy(text));
+    }
+  };
+
+  load();
+  render();
+</script>
+</body>
+</html>

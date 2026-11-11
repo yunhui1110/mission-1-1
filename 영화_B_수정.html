@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>필름로그 — 나의 영화 별점</title>
+<style>
+:root{color-scheme:dark;--bg:#111214;--panel:#1b1d21;--panel2:#22252a;--line:#34373d;--text:#f3f0e9;--muted:#9a9da5;--gold:#f3c969;--star-empty:#62656d}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse at 50% -20%,#303039 0%,#17181c 43%,var(--bg) 78%);color:var(--text);font-family:Inter,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;min-height:100vh}
+.wrap{width:min(100% - 40px,980px);margin:0 auto;padding:58px 0 80px}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;border-bottom:1px solid var(--line);padding-bottom:26px;margin-bottom:30px}
+.header-side{display:flex;align-items:flex-end;gap:16px}
+.apply-btn{border:1px solid var(--gold);background:var(--gold);color:#191919;border-radius:7px;padding:10px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:opacity .2s}
+.apply-btn:hover{opacity:.88}
+.apply-btn:active{transform:translateY(1px)}
+.rank-label{font-size:10px;color:var(--gold);letter-spacing:.08em;margin-bottom:5px}
+.eyebrow{font-size:11px;letter-spacing:.22em;color:var(--gold);font-weight:700;margin-bottom:12px}
+h1{font-family:Georgia,"Times New Roman",serif;font-weight:500;font-size:clamp(36px,6vw,58px);letter-spacing:-.045em;margin:0}
+.subtitle{color:var(--muted);font-size:13px;margin:12px 0 0}
+.count{font-size:12px;color:var(--muted);white-space:nowrap;padding-bottom:5px}
+.count strong{color:var(--text);font-size:18px;font-weight:500}
+.notice{font-size:12px;color:var(--muted);margin:0 0 20px;line-height:1.7}
+.movie-list{display:grid;gap:12px}
+.movie{display:grid;grid-template-columns:54px minmax(0,1fr) auto;gap:18px;align-items:center;background:linear-gradient(110deg,rgba(255,255,255,.045),rgba(255,255,255,.018));border:1px solid var(--line);border-radius:13px;padding:20px 22px;transition:border-color .2s,background .2s}
+.movie:hover{border-color:#555963;background:rgba(255,255,255,.055)}
+.movie.dragging{opacity:.4}
+.movie.drag-over{border-color:var(--gold)}
+.number{font-family:Georgia,serif;color:#777b84;font-size:20px;text-align:center}
+.info{min-width:0}
+.title{font-size:17px;font-weight:650;letter-spacing:-.02em;margin:0 0 5px}
+.original{font-size:11px;color:var(--muted);letter-spacing:.04em}
+.rating-area{display:flex;align-items:center;gap:10px;justify-content:flex-end}
+.stars{display:flex;gap:2px;align-items:center}
+.star-wrap{position:relative;display:inline-flex;width:27px;height:30px;cursor:pointer;user-select:none;justify-content:center;align-items:center}
+.star{font-size:27px;line-height:1;color:var(--star-empty);position:relative;display:block}
+.star-fill{position:absolute;inset:0 auto 0 0;width:0;overflow:hidden;color:var(--gold);white-space:nowrap;pointer-events:none}
+.star-fill .star{color:var(--gold)}
+.rating-number{font-variant-numeric:tabular-nums;color:var(--gold);font-size:13px;min-width:34px;text-align:right}
+.zero-btn{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer}
+.zero-btn:hover{color:var(--text);border-color:#777}
+.review{grid-column:2/4;width:100%;resize:vertical;min-height:42px;max-height:120px;background:#141518;border:1px solid #30333a;border-radius:8px;color:var(--text);padding:10px 12px;font:inherit;font-size:12px;line-height:1.5;outline:none}
+.review:focus{border-color:#8d784a}
+.review::placeholder{color:#777b83}
+.drag-hint{font-size:10px;color:#777b83;text-align:right;margin-top:18px}
+footer{border-top:1px solid var(--line);margin-top:36px;padding-top:18px;color:#777b83;font-size:11px;line-height:1.7}
+@media(max-width:650px){.wrap{width:min(100% - 26px,980px);padding-top:36px}.movie{grid-template-columns:28px minmax(0,1fr);gap:12px;padding:17px 14px}.number{text-align:left}.rating-area{grid-column:2;justify-content:flex-start;margin-top:8px}.review{grid-column:2}.star-wrap{width:25px}.star{font-size:25px}header{align-items:flex-start;flex-direction:column;gap:14px}.header-side{width:100%;align-items:center;justify-content:space-between}.count{padding:0}.apply-btn{padding:9px 11px}}
+</style>
+</head>
+<body>
+<main class="wrap">
+<header>
+  <div>
+    <div class="eyebrow">YOUR PERSONAL MOVIE JOURNAL</div>
+    <h1>필름로그<span style="color:var(--gold)">.</span></h1>
+    <p class="subtitle">좋아하는 영화를 기록하고, 나만의 별점을 남겨보세요.</p>
+  </div>
+  <div class="header-side">
+    <div class="count"><strong id="ratedCount">0</strong> / 8편 평가</div>
+    <button class="apply-btn" id="applyRanking" type="button">평가 적용 및 순위 정렬</button>
+  </div>
+</header>
+<p class="notice">별을 클릭해 0.5점 단위로 평가할 수 있어요. 별의 왼쪽 절반은 0.5점, 오른쪽 절반은 해당 별의 정수 점수입니다.</p>
+<section class="movie-list" id="movieList" aria-label="영화 목록"></section>
+<div class="drag-hint">⠿ 영화 카드를 드래그해 순서를 바꿀 수 있습니다.</div>
+<footer>별점과 감상평, 영화 순서는 현재 브라우저에 자동 저장됩니다. 다른 기기나 사용자와 공유하려면 별도의 서버 기능이 필요합니다.</footer>
+</main>
+<script>
+const initialMovies = [
+  ["기생충","PARASITE"],["인터스텔라","INTERSTELLAR"],["라라랜드","LA LA LAND"],
+  ["센과 치히로의 행방불명","SPIRITED AWAY"],["어벤져스: 엔드게임","AVENGERS: ENDGAME"],
+  ["범죄도시","THE ROUNDUP"],["타이타닉","TITANIC"],["토이 스토리","TOY STORY"]
+];
+const STORAGE_KEY = "filmlog-movie-rating-v3";
+let movies = initialMovies.map(([title,original],i)=>({id:i,title,original,rating:0,review:""}));
+try {
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+  if (Array.isArray(saved) && saved.length) {
+    const byId = new Map(saved.map(m=>[m.id,m]));
+    movies = initialMovies.map(([title,original],i)=>({...{id:i,title,original,rating:0,review:""},...(byId.get(i)||{})}));
+    movies.sort((a,b)=>saved.findIndex(m=>m.id===a.id)-saved.findIndex(m=>m.id===b.id));
+  }
+} catch(e) {}
+const list = document.getElementById("movieList");
+function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(movies));updateCount();}
+function updateCount(){document.getElementById("ratedCount").textContent=movies.filter(m=>m.rating>0).length;}
+function starMarkup(movie,index){
+  const fill=Math.max(0,Math.min(1,movie.rating-index))*100;
+  return `<span class="star-wrap" data-star="${index+1}" role="button" tabindex="0" aria-label="${index+1}번째 별로 평가">
+    <span class="star">★</span><span class="star-fill" style="width:${fill}%"><span class="star">★</span></span>
+  </span>`;
+}
+function render(){
+  list.innerHTML=movies.map((m,i)=>`<article class="movie" draggable="true" data-id="${m.id}">
+    <div><div class="rank-label">RANK</div><div class="number">${String(i+1).padStart(2,"0")}</div></div>
+    <div class="info"><h2 class="title">${m.title}</h2><div class="original">${m.original}</div></div>
+    <div class="rating-area">
+      <button class="zero-btn" type="button" aria-label="0점">0</button>
+      <div class="stars">${Array.from({length:5},(_,j)=>starMarkup(m,j)).join("")}</div>
+      <span class="rating-number">${m.rating.toFixed(1)}</span>
+    </div>
+    <textarea class="review" placeholder="이 영화에 대한 짧은 감상평을 남겨보세요." aria-label="${m.title} 감상평">${escapeHtml(m.review)}</textarea>
+  </article>`).join("");
+  updateCount();
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+list.addEventListener("click",e=>{
+  const card=e.target.closest(".movie");if(!card)return;
+  const movie=movies.find(m=>m.id===Number(card.dataset.id));if(!movie)return;
+  if(e.target.closest(".zero-btn")){movie.rating=0;save();render();return;}
+  const star=e.target.closest(".star-wrap");
+  if(star){
+    const rect=star.getBoundingClientRect(),x=e.clientX-rect.left;
+    const n=Number(star.dataset.star);
+    movie.rating=x<rect.width/2?n-.5:n;
+    movie.rating=Math.max(0,Math.min(5,movie.rating));
+    save();render();
+  }
+});
+list.addEventListener("keydown",e=>{
+  if((e.key==="Enter"||e.key===" ")&&e.target.classList.contains("star-wrap")){
+    e.preventDefault();const card=e.target.closest(".movie");
+    const movie=movies.find(m=>m.id===Number(card.dataset.id));
+    movie.rating=Number(e.target.dataset.star);save();render();
+  }
+});
+list.addEventListener("input",e=>{
+  if(e.target.classList.contains("review")){
+    const card=e.target.closest(".movie"),movie=movies.find(m=>m.id===Number(card.dataset.id));
+    movie.review=e.target.value;save();
+  }
+});
+let dragged=null;
+list.addEventListener("dragstart",e=>{const card=e.target.closest(".movie");if(!card)return;dragged=Number(card.dataset.id);card.classList.add("dragging");e.dataTransfer.effectAllowed="move";});
+list.addEventListener("dragend",e=>{e.target.closest(".movie")?.classList.remove("dragging");list.querySelectorAll(".drag-over").forEach(el=>el.classList.remove("drag-over"));});
+list.addEventListener("dragover",e=>{e.preventDefault();const card=e.target.closest(".movie");if(card&&Number(card.dataset.id)!==dragged){list.querySelectorAll(".drag-over").forEach(el=>el.classList.remove("drag-over"));card.classList.add("drag-over");}});
+list.addEventListener("drop",e=>{
+  e.preventDefault();const target=e.target.closest(".movie");if(!target||dragged===null)return;
+  const from=movies.findIndex(m=>m.id===dragged),to=movies.findIndex(m=>m.id===Number(target.dataset.id));
+  if(from<0||to<0)return;const [item]=movies.splice(from,1);movies.splice(to,0,item);dragged=null;save();render();
+});
+document.getElementById("applyRanking").addEventListener("click",()=>{
+  // 높은 별점부터 정렬하며, 같은 별점끼리는 기존 순서를 유지합니다.
+  movies = movies.map((movie,index)=>({...movie,_previousIndex:index}))
+    .sort((a,b)=>b.rating-a.rating || a._previousIndex-b._previousIndex)
+    .map(({_previousIndex,...movie})=>movie);
+  save();
+  render();
+  document.getElementById("applyRanking").textContent="순위 적용 완료";
+  window.setTimeout(()=>{document.getElementById("applyRanking").textContent="평가 적용 및 순위 정렬";},1800);
+});
+render();
+</script>
+</body>
+</html>
